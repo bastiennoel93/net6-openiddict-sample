@@ -41,11 +41,11 @@ public static class StoreInitializer
                 });
             }
 
-            if (await manager.FindByClientIdAsync("resource_server_1") is null)
+            if (await manager.FindByClientIdAsync("resource_server") is null)
             {
                 await manager.CreateAsync(new OpenIddictApplicationDescriptor
                 {
-                    ClientId = "resource_server_1",
+                    ClientId = "resource_server",
                     ClientSecret = "secret",
                     Permissions =
                     {
@@ -68,7 +68,7 @@ public static class StoreInitializer
                 Resources =
                 {
                     "console_app",
-                    "resource_server_1"
+                    "resource_server"
                 }
             });
         }
