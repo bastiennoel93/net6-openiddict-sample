@@ -18,43 +18,44 @@ public static class StoreInitializer
 
     private static async Task CreateApplicationsAsync(AsyncServiceScope scope)
     {
-            var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+        var manager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
 
-            if (await manager.FindByClientIdAsync("console_app") is null)
+        if (await manager.FindByClientIdAsync("console_app") is null)
+        {
+            var client = new OpenIddictApplicationDescriptor
             {
-                await manager.CreateAsync(new OpenIddictApplicationDescriptor
+                ClientId = "console_app",
+                ClientSecret = "secret",
+                DisplayName = "Application Console",
+                Permissions =
                 {
-                    ClientId = "console_app",
-                    ClientSecret = "secret",
-                    Permissions =
-                    {
-                        OpenIddictConstants.Permissions.Endpoints.Authorization,
-                        OpenIddictConstants.Permissions.Endpoints.Token,
-                        OpenIddictConstants.Permissions.GrantTypes.Password,
-                        OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
-                        OpenIddictConstants.Permissions.ResponseTypes.Code,
-                        OpenIddictConstants.Permissions.Scopes.Email,
-                        OpenIddictConstants.Permissions.Scopes.Profile,
-                        OpenIddictConstants.Permissions.Scopes.Roles,
-                        OpenIddictConstants.Permissions.Prefixes.Scope + "api1"
-                    }
-                });
-            }
+                    OpenIddictConstants.Permissions.Endpoints.Authorization,
+                    OpenIddictConstants.Permissions.Endpoints.Token,
+                    OpenIddictConstants.Permissions.GrantTypes.Password,
+                    OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                    OpenIddictConstants.Permissions.ResponseTypes.Code,
+                    OpenIddictConstants.Permissions.Scopes.Email,
+                    OpenIddictConstants.Permissions.Scopes.Profile,
+                    OpenIddictConstants.Permissions.Scopes.Roles,
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "api1"
+                }
+            };
+            await manager.CreateAsync(client);
+        }
 
-            if (await manager.FindByClientIdAsync("resource_server") is null)
+        if (await manager.FindByClientIdAsync("resource_server") is null)
+        {
+            await manager.CreateAsync(new OpenIddictApplicationDescriptor
             {
-                await manager.CreateAsync(new OpenIddictApplicationDescriptor
-                {
-                    ClientId = "resource_server",
-                    ClientSecret = "secret",
-                    Permissions =
+                ClientId = "resource_server",
+                ClientSecret = "secret",
+                Permissions =
                     {
                         OpenIddictConstants.Permissions.Endpoints.Introspection
                     }
-                });
-            }
+            });
+        }
     }
-
 
     public static async Task CreateScopesAsync(AsyncServiceScope scope)
     {
@@ -101,12 +102,12 @@ public static class StoreInitializer
         {
             await roleManager.CreateAsync(new IdentityRole("admin"));
         }
-        
+
         if (!userManager.Users.Any(x => x.UserName == defaultAdmin.UserName))
         {
             await userManager.CreateAsync(account, "password");
 
-            await userManager.AddToRolesAsync(account, new List<string>{ "admin" });
+            await userManager.AddToRolesAsync(account, new List<string> { "admin" });
         }
     }
 }

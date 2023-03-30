@@ -1,24 +1,18 @@
-using System.Globalization;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.JsonWebTokens;
 using OpenIddict.Abstractions;
+using OpenIddict.Api.Configurations;
 using OpenIddict.Domain.Models;
 using OpenIddict.Server.AspNetCore;
 using OpenIddict.Store;
 using OpenIddict.Validation.AspNetCore;
-using OpenIddict.Api.Configurations;
-using Microsoft.Extensions.Hosting;
-
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
-
-
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -29,7 +23,7 @@ builder.Services.AddAuthentication(builder.Configuration, builder.Environment);
 builder.Services
     .AddDbContext<OpenIddictContext>(options =>
     {
-        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"));
+        options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
         options.UseOpenIddict();
     });
 
@@ -50,7 +44,6 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-
 await using (var scope = app.Services.CreateAsyncScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<OpenIddictContext>();
@@ -61,7 +54,6 @@ await using (var scope = app.Services.CreateAsyncScope())
 
 app.UseAuthentication();
 app.UseAuthorization();
-
 
 app.MapGet("/authorize", [Authorize]
 (ClaimsPrincipal user) => user.Identity!.Name);
@@ -75,47 +67,71 @@ app.MapPost("/connect/token", async (HttpContext context,
 {
     var request = context.GetOpenIddictServerRequest();
 
+    var credentialError = new AuthenticationProperties(new Dictionary<string, string?>
+    {
+        [OpenIddictServerAspNetCoreConstants.Properties.Error] = OpenIddictConstants.Errors.InvalidGrant,
+        [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The credentials is invalid."
+    });
+
     if (request == null)
     {
-        return Results.BadRequest("The credentials is invalid.");
+        return Results.Forbid(credentialError);
     }
 
-    if (!request.IsPasswordGrantType())
+    if (request.IsAuthorizationCodeGrantType())
     {
-        throw new NotImplementedException("The specified grant is not implemented.");
+        return Results.Forbid(new AuthenticationProperties(new Dictionary<string, string?>
+        {
+            [OpenIddictServerAspNetCoreConstants.Properties.Error] = OpenIddictConstants.Errors.InvalidGrant,
+            [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The specified grant is not implemented."
+        }));
     }
 
+    if (request.IsRefreshTokenGrantType())
+    {
+        var claimsPrincipal = (await context.AuthenticateAsync(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)).Principal;
+        if (claimsPrincipal == null)
+            return Results.Unauthorized();
+
+        return Results.SignIn(claimsPrincipal, properties: null,
+            OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    var invalidClientError = new AuthenticationProperties(new Dictionary<string, string?>
+    {
+        [OpenIddictServerAspNetCoreConstants.Properties.Error] = OpenIddictConstants.Errors.InvalidClient,
+        [OpenIddictServerAspNetCoreConstants.Properties.ErrorDescription] = "The ClientId is invalid."
+    });
 
     if (string.IsNullOrEmpty(request.ClientId) || string.IsNullOrEmpty(request.ClientSecret))
     {
-        return Results.BadRequest(@"Missing credentials: ensure that your credentials were correctly
-                                       flowed in the request body or in the authorization header");
+        return Results.Forbid(invalidClientError);
     }
 
     var application = await manager.FindByClientIdAsync(request.ClientId, context.RequestAborted);
 
     if (application == null)
     {
-        return Results.BadRequest("The credentials is invalid.");
+        return Results.Forbid(invalidClientError);
     }
 
     var clientIsValid = await manager.ValidateClientSecretAsync(application, request.ClientSecret, context.RequestAborted);
 
     if (!clientIsValid)
     {
-        return Results.BadRequest("The credentials is invalid.");
+        return Results.Forbid(invalidClientError);
     }
 
     var identityAccount = await userManager.FindByNameAsync(request.Username);
 
     if (identityAccount == null)
     {
-        return Results.BadRequest("The credentials is invalid.");
+        return Results.Forbid(credentialError);
     }
     var passwordValidResult = await signInManager.CheckPasswordSignInAsync(identityAccount, request.Password, lockoutOnFailure: false);
     if (!passwordValidResult.Succeeded)
     {
-        return Results.BadRequest("The credentials is invalid.");
+        return Results.Forbid(credentialError);
     }
 
     var user = await userManager.Users.Select(x => x.User).FirstOrDefaultAsync(x => x.UserName == identityAccount.UserName);
@@ -138,7 +154,7 @@ app.MapPost("/connect/token", async (HttpContext context,
             new(OpenIddictConstants.Claims.Subject, user.Id.ToString()),
             new(OpenIddictConstants.Claims.Username, identityAccount.UserName)
         };
-        
+
         claims.AddRange(userRoles.Select(role => new Claim(ClaimTypes.Role, role)));
 
         var identity = new ClaimsIdentity(claims,

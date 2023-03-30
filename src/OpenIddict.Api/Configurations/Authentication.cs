@@ -7,7 +7,7 @@ using OpenIddict.Validation.AspNetCore;
 
 namespace OpenIddict.Api.Configurations;
 
-public  static class Authentication
+public static class Authentication
 {
     public static IServiceCollection AddAuthentication(this IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
     {
@@ -39,11 +39,9 @@ public  static class Authentication
                 options.UseReferenceAccessTokens();
                 options.UseReferenceRefreshTokens();
 
-
                 options.RegisterScopes(OpenIddictConstants.Permissions.Scopes.Email,
                     OpenIddictConstants.Permissions.Scopes.Profile,
                     OpenIddictConstants.Permissions.Scopes.Roles);
-
 
                 options.SetAccessTokenLifetime(TimeSpan.FromHours(12));
                 options.SetRefreshTokenLifetime(TimeSpan.FromDays(7));
@@ -60,7 +58,6 @@ public  static class Authentication
                     options.AddDevelopmentEncryptionCertificate()
                         .AddDevelopmentSigningCertificate();
                 }
-
 
                 //options.DisableAccessTokenEncryption();
 
@@ -96,5 +93,4 @@ public  static class Authentication
 
         return services;
     }
-
 }
