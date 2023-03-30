@@ -101,8 +101,8 @@ This sample project includes the following API endpoints:
 - POST /connect/token - Get an access token with the following parameters:
     - With password grant type:
         - *grant_type= password*
-        - *username= <your username>*
-        - *password= <your password>*
+        - *username= <your_username>*
+        - *password= <your_password>*
         - *client_id= <client_id>*
         - *client_secret= <client_secret>*
 
@@ -110,7 +110,7 @@ This sample project includes the following API endpoints:
         - *grant_type= refresh_token*
         - *client_id= <client_id>*
         - *client_secret= <client_secret>*
-        - *refresh_token= <your refresh_token>*
+        - *refresh_token= <your_refresh_token>*
 
 The response will include an access token, which you can then use to access the API endpoints.
 
